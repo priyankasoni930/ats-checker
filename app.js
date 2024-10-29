@@ -18,7 +18,7 @@ if (!API_KEY) {
 // Update CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:5173", // Update this to match your frontend URL
+    origin: "https://resume-ace.vercel.app", // Update this to match your frontend URL
     methods: ["POST", "GET", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Accept"],
   })
