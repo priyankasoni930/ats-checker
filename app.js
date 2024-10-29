@@ -15,14 +15,18 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-// Configure CORS
+// Update CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    methods: ["POST", "GET"],
-    allowedHeaders: ["Content-Type"],
+    origin: "http://localhost:5173", // Update this to match your frontend URL
+    methods: ["POST", "GET", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Accept"],
   })
 );
+
+// These middleware declarations should come BEFORE your routes
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
@@ -169,7 +173,187 @@ app.get("/", (req, res) => {
   res.send("ATS Check API is running");
 });
 
-const port = process.env.PORT || 3002;
+// Add this route after the existing ATS check route
+
+app.post(
+  "/api/generate-cover-letter",
+  upload.single("resume"),
+  async (req, res) => {
+    let filePath = null;
+
+    try {
+      // Check if file and job description were provided
+      if (!req.file) {
+        throw new Error("No resume file uploaded");
+      }
+
+      if (!req.body.jobDescription) {
+        throw new Error("No job description provided");
+      }
+
+      filePath = req.file.path;
+
+      // Extract text from PDF
+      const resumeText = await extractTextFromPDF(filePath);
+
+      if (!resumeText || resumeText.trim().length === 0) {
+        throw new Error("Could not extract text from resume PDF");
+      }
+
+      // Initialize Gemini model
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+      const prompt = `You are a professional cover letter writer. Using the provided resume and job description, create a compelling cover letter. The cover letter should:
+    1. Be tailored to the specific job
+    2. Highlight relevant experience from the resume
+    3. Show enthusiasm for the role
+    4. Be professional but personable
+    5. Be around 300-400 words
+
+    Resume content:
+    ${resumeText}
+
+    Job Description:
+    ${req.body.jobDescription}
+
+   Provide the response in the following JSON format only:
+    {
+      "coverLetter": string (the complete cover letter),
+      "highlights": [string] (3-4 key points emphasized),
+      "suggestedImprovements": [string] (optional suggestions for the applicant)
+    }`;
+
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+
+      try {
+        // Parse the JSON response
+        const parsedResponse = JSON.parse(responseText);
+
+        // Validate the response format
+        if (
+          !parsedResponse.coverLetter ||
+          !Array.isArray(parsedResponse.highlights)
+        ) {
+          throw new Error("Invalid response format from AI");
+        }
+
+        res.json({
+          coverLetter: parsedResponse.coverLetter,
+          highlights: parsedResponse.highlights,
+          suggestedImprovements: parsedResponse.suggestedImprovements || [],
+        });
+      } catch (parseError) {
+        // Fallback in case of parsing error
+        console.error("Parse error:", parseError);
+
+        // Extract the content between common letter opening/closing phrases as a fallback
+        const letterContent = responseText.replace(/[\r\n]+/g, "\n").trim();
+
+        res.json({
+          coverLetter: letterContent,
+          highlights: [
+            "Letter generated based on your resume and job description",
+          ],
+          suggestedImprovements: [
+            "Consider reviewing and personalizing the generated content",
+          ],
+        });
+      }
+    } catch (error) {
+      console.error("Error in cover letter generation:", error);
+      res.status(500).json({
+        error: error.message || "Failed to generate cover letter",
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    } finally {
+      // Clean up uploaded file
+      if (filePath) {
+        cleanupFile(filePath);
+      }
+    }
+  }
+);
+
+app.post("/api/generate-cover-letter/text", async (req, res) => {
+  try {
+    console.log("Received request body:", req.body); // Debugging line
+
+    const { jobDescription, skillsExperience } = req.body;
+
+    // Validate required fields
+    if (!jobDescription || !skillsExperience) {
+      return res.status(400).json({
+        success: false,
+        error: "Both job description and skills/experience are required",
+      });
+    }
+
+    // Initialize Gemini model
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Make sure to use the correct env variable
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    const prompt = `You are a professional cover letter writer. Using the provided skills/experience and job description, create a compelling cover letter. The cover letter should: 
+    1. Be tailored to the specific job 
+    2. Highlight relevant experience from the provided background 
+    3. Show enthusiasm for the role 
+    4. Be professional but personable 
+    5. Be around 300-400 words
+
+    Candidate's Skills and Experience: ${skillsExperience}
+    Job Description: ${jobDescription}
+
+    Provide the response in the following JSON format only: 
+    {
+      "coverLetter": string (the complete cover letter),
+    }`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+
+    try {
+      const parsedResponse = JSON.parse(responseText);
+
+      if (!parsedResponse.coverLetter) {
+        throw new Error("Invalid response format from AI");
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          coverLetter: parsedResponse.coverLetter,
+        },
+      });
+    } catch (parseError) {
+      console.error("Parse error:", parseError);
+      const letterContent = responseText.replace(/[\r\n]+/g, "\n").trim();
+
+      return res.json({
+        success: true,
+        data: {
+          coverLetter: letterContent,
+          highlights: [
+            "Letter generated based on your background and job description",
+          ],
+          suggestedImprovements: [
+            "Consider reviewing and personalizing the generated content",
+          ],
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error generating cover letter:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to generate cover letter",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log("API Key status:", API_KEY ? "Found" : "Missing");
