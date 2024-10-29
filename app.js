@@ -219,8 +219,6 @@ app.post(
    Provide the response in the following JSON format only:
     {
       "coverLetter": string (the complete cover letter),
-      "highlights": [string] (3-4 key points emphasized),
-      "suggestedImprovements": [string] (optional suggestions for the applicant)
     }`;
 
       const result = await model.generateContent(prompt);
@@ -232,16 +230,13 @@ app.post(
 
         // Validate the response format
         if (
-          !parsedResponse.coverLetter ||
-          !Array.isArray(parsedResponse.highlights)
+          !parsedResponse.coverLetter 
         ) {
           throw new Error("Invalid response format from AI");
         }
 
         res.json({
           coverLetter: parsedResponse.coverLetter,
-          highlights: parsedResponse.highlights,
-          suggestedImprovements: parsedResponse.suggestedImprovements || [],
         });
       } catch (parseError) {
         // Fallback in case of parsing error
