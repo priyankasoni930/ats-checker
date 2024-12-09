@@ -348,6 +348,26 @@ app.post("/api/generate-cover-letter/text", async (req, res) => {
   }
 });
 
+app.get("/transcript", async (req, res) => {
+  const videoId = req.query.videoId;
+
+  if (!videoId) {
+    console.log("checking video id");
+    return res.status(400).json({ error: "Video ID is required" });
+  }
+
+  try {
+    console.log("before fetching transcript");
+    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+    console.log("after fetching transcript");
+    res.json(transcript);
+    console.log("after sending response");
+  } catch (error) {
+    console.log("if got error");
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
