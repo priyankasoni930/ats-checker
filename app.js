@@ -1,6 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
+const { YoutubeTranscript } = require("youtube-transcript");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pdf = require("pdf-parse");
 const fs = require("fs");
