@@ -288,7 +288,7 @@ app.post("/api/generate-cover-letter/text", async (req, res) => {
 
     // Initialize Gemini model
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Make sure to use the correct env variable
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `You are a professional cover letter writer. Using the provided skills/experience and job description, create a compelling cover letter. The cover letter should: 
     1. Be tailored to the specific job 
