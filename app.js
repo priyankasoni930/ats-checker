@@ -109,7 +109,7 @@ app.post("/api/ats-check", upload.single("resume"), async (req, res) => {
     }
 
     // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `You are an ATS (Applicant Tracking System) expert. Analyze this resume and provide:
     1. A score from 0-100 based on ATS compatibility
