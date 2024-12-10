@@ -202,7 +202,7 @@ app.post(
       }
 
       // Initialize Gemini model
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `You are a professional cover letter writer. Using the provided resume and job description, create a compelling cover letter. The cover letter should:
     1. Be tailored to the specific job
